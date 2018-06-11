@@ -25,6 +25,7 @@ env:
 branches:
   only:
     - master
+    - loop_in_sslsocket_read
     - /^\d\.\d$/
     - buildbot-custom
 
