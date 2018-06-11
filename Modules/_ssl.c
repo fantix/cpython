@@ -2361,6 +2361,7 @@ _ssl__SSLSocket_read_impl(PySSLSocket *self, int len, int group_right_1,
     PyObject *dest = NULL;
     char *mem;
     int count;
+    int readsize;
     int sockstate;
     int err;
     int nonblocking;
@@ -2368,6 +2369,7 @@ _ssl__SSLSocket_read_impl(PySSLSocket *self, int len, int group_right_1,
     _PyTime_t timeout, deadline = 0;
     int has_timeout;
 
+    count = 0;
     if (!group_right_1 && len < 0) {
         PyErr_SetString(PyExc_ValueError, "size should not be negative");
         return NULL;
@@ -2422,9 +2424,12 @@ _ssl__SSLSocket_read_impl(PySSLSocket *self, int len, int group_right_1,
 
     do {
         PySSL_BEGIN_ALLOW_THREADS
-        count = SSL_read(self->ssl, mem, len);
-        _PySSL_UPDATE_ERRNO_IF(count <= 0, self, count);
+        readsize = SSL_read(self->ssl, mem + count, len - count);
+        _PySSL_UPDATE_ERRNO_IF(readsize <= 0, self, readsize);
         PySSL_END_ALLOW_THREADS
+
+        if (readsize > 0)
+            count += readsize;
 
         if (PyErr_CheckSignals())
             goto error;
@@ -2453,7 +2458,7 @@ _ssl__SSLSocket_read_impl(PySSLSocket *self, int len, int group_right_1,
         } else if (sockstate == SOCKET_IS_NONBLOCKING) {
             break;
         }
-    } while (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE);
+    } while (count < len && (err == 0 || err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE));
 
     if (count <= 0) {
         PySSL_SetError(self, count, __FILE__, __LINE__);
