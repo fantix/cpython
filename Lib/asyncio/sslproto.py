@@ -86,7 +86,6 @@ class SSLProtocol(protocols.BufferedProtocol):
         self._incoming = ssl.MemoryBIO()
         self._outgoing = ssl.MemoryBIO()
         self._ssl_buffer = bytearray(262144)
-        self._app_buffer = bytearray(262144)
 
     # BaseProtocol methods
 
@@ -212,14 +211,16 @@ class SSLProtocol(protocols.BufferedProtocol):
             self._transport.writelines(out)
 
     def _do_read(self):
+        data = []
         try:
             while True:
-                size = self._sslobj.read(262144, self._app_buffer)
-                if not size:
+                chunk = self._sslobj.read(16384)
+                if not chunk:
                     break
-                self._app_protocol.data_received(memoryview(self._app_buffer)[:size])
+                data.append(chunk)
         except ssl.SSLError as exc:
             if exc.errno not in (ssl.SSL_ERROR_WANT_READ,
                                  ssl.SSL_ERROR_WANT_WRITE,
                                  ssl.SSL_ERROR_SYSCALL):
                 raise
+        self._app_protocol.data_received(b''.join(data))
