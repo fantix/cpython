@@ -905,6 +905,9 @@ newPySSLSocket(PySSLContext *sslctx, PySocketSockObject *sock,
 
     PySSL_BEGIN_ALLOW_THREADS
     self->ssl = SSL_new(ctx);
+    // TODO: check the two calls
+    // SSL_set_read_ahead(self->ssl, 1);
+    // SSL_set_mode(self->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
     PySSL_END_ALLOW_THREADS
     SSL_set_app_data(self->ssl, self);
     if (sock) {

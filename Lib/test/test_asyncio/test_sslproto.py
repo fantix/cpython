@@ -42,16 +42,7 @@ class SslProtoHandshakeTests(test_utils.TestCase):
 
     def connection_made(self, ssl_proto, *, do_handshake=None):
         transport = mock.Mock()
-        sslpipe = mock.Mock()
-        sslpipe.shutdown.return_value = b''
-        if do_handshake:
-            sslpipe.do_handshake.side_effect = do_handshake
-        else:
-            def mock_handshake(callback):
-                return []
-            sslpipe.do_handshake.side_effect = mock_handshake
-        with mock.patch('asyncio.sslproto._SSLPipe', return_value=sslpipe):
-            ssl_proto.connection_made(transport)
+        ssl_proto.connection_made(transport)
         return transport
 
     def test_handshake_timeout_zero(self):
@@ -141,7 +132,8 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         transp.close()
 
         # should not raise
-        self.assertIsNone(ssl_proto.data_received(b'data'))
+        ssl_proto.get_buffer(4)[:4] = b'data'
+        self.assertIsNone(ssl_proto.buffer_updated(4))
 
     def test_write_after_closing(self):
         ssl_proto = self.ssl_protocol()
