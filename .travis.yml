@@ -27,6 +27,7 @@ branches:
     - master
     - /^\d\.\d$/
     - buildbot-custom
+    - new_sslproto
 
 matrix:
   fast_finish: true
