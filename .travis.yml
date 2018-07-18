@@ -27,6 +27,7 @@ branches:
     - master
     - /^\d\.\d$/
     - buildbot-custom
+    - uvloop_176_sslproto
 
 matrix:
   fast_finish: true
