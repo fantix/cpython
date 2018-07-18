@@ -168,6 +168,7 @@ class SSLWSGIServerMixin:
         ssock = context.wrap_socket(request, server_side=True)
         try:
             self.RequestHandlerClass(ssock, client_address, self)
+            ssock.unwrap()
             ssock.close()
         except OSError:
             # maybe socket has been closed by peer

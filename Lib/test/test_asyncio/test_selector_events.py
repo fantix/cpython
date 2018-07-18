@@ -75,6 +75,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_make_ssl_transport(self):
         m = mock.Mock()
+        m.wrap_bio().read.side_effect = ssl.SSLWantReadError
         self.loop._add_reader = mock.Mock()
         self.loop._add_reader._is_coroutine = False
         self.loop._add_writer = mock.Mock()
@@ -85,9 +86,7 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
             transport = self.loop._make_ssl_transport(
                 m, asyncio.Protocol(), m, waiter)
 
-            with self.assertRaisesRegex(RuntimeError,
-                                        r'SSL transport.*not.*initialized'):
-                transport.is_reading()
+            self.assertTrue(transport.is_reading())
 
             # execute the handshake while the logger is disabled
             # to ignore SSL handshake failure

@@ -42,16 +42,7 @@ class SslProtoHandshakeTests(test_utils.TestCase):
 
     def connection_made(self, ssl_proto, *, do_handshake=None):
         transport = mock.Mock()
-        sslpipe = mock.Mock()
-        sslpipe.shutdown.return_value = b''
-        if do_handshake:
-            sslpipe.do_handshake.side_effect = do_handshake
-        else:
-            def mock_handshake(callback):
-                return []
-            sslpipe.do_handshake.side_effect = mock_handshake
-        with mock.patch('asyncio.sslproto._SSLPipe', return_value=sslpipe):
-            ssl_proto.connection_made(transport)
+        ssl_proto.connection_made(transport)
         return transport
 
     def test_handshake_timeout_zero(self):
@@ -73,10 +64,10 @@ class SslProtoHandshakeTests(test_utils.TestCase):
     def test_eof_received_waiter(self):
         waiter = asyncio.Future(loop=self.loop)
         ssl_proto = self.ssl_protocol(waiter=waiter)
-        self.connection_made(ssl_proto)
+        transport = self.connection_made(ssl_proto)
         ssl_proto.eof_received()
         test_utils.run_briefly(self.loop)
-        self.assertIsInstance(waiter.exception(), ConnectionResetError)
+        self.assertTrue(transport._force_close.called)
 
     def test_fatal_error_no_name_error(self):
         # From issue #363.
@@ -112,7 +103,7 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         test_utils.run_briefly(self.loop)
 
         ssl_proto._app_transport.close()
-        self.assertTrue(transport.abort.called)
+        self.assertTrue(transport._force_close.called)
 
     def test_get_extra_info_on_closed_connection(self):
         waiter = asyncio.Future(loop=self.loop)
@@ -141,7 +132,8 @@ class SslProtoHandshakeTests(test_utils.TestCase):
         transp.close()
 
         # should not raise
-        self.assertIsNone(ssl_proto.data_received(b'data'))
+        ssl_proto.get_buffer(4)[:4] = b'data'
+        self.assertIsNone(ssl_proto.buffer_updated(4))
 
     def test_write_after_closing(self):
         ssl_proto = self.ssl_protocol()
@@ -231,7 +223,7 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
             data = sock.recv_all(len(HELLO_MSG))
             self.assertEqual(len(data), len(HELLO_MSG))
 
-            sock.shutdown(socket.SHUT_RDWR)
+            sock.unwrap()
             sock.close()
 
         class ClientProto(asyncio.Protocol):
@@ -296,7 +288,7 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
             data = sock.recv_all(len(HELLO_MSG))
             self.assertEqual(len(data), len(HELLO_MSG))
 
-            sock.shutdown(socket.SHUT_RDWR)
+            sock.unwrap()
             sock.close()
 
         class ClientProtoFirst(asyncio.BufferedProtocol):
@@ -441,7 +433,7 @@ class BaseStartTLS(func_tests.FunctionalTestCaseMixin):
             sock.start_tls(client_context)
             sock.sendall(HELLO_MSG)
 
-            sock.shutdown(socket.SHUT_RDWR)
+            sock.unwrap()
             sock.close()
 
         class ServerProto(asyncio.Protocol):
